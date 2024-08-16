@@ -22,6 +22,8 @@ async function run() {
     await client.connect();
 
     const productCollection = client.db("Products").collection("allProducts");
+    const userCollection = client.db("Products").collection("users");
+
 
     app.get("/allProducts", async (req, res) => {
       try {
@@ -63,30 +65,42 @@ async function run() {
 
     app.get('/sortProducts', async (req, res) => {
         try {
-            const { priceOrder, isLatestFirst } = req.query;
-    
-            const sortQuery = {};
-            
-            // Set the sort query based on user selection
-            if (priceOrder === 'High to Low Price') {
-                sortQuery.price = -1;  // Sort by price descending
-            } else if (priceOrder === 'Low to High Price') {
-                sortQuery.price = 1;   // Sort by price ascending
-            }
-    
-            if (isLatestFirst === 'true') {
-                sortQuery.
-                creationDateTime = -1;  // Sort by creation date descending
-            }
-    
-            const products = await productCollection.find().sort(sortQuery).toArray();
-            res.json(products);
+          const { priceOrder, isLatestFirst, page = 1, limit = 10 } = req.query;
+      
+          const sortQuery = {};
+          if (priceOrder === 'High to Low Price') {
+            sortQuery.price = -1;
+          } else if (priceOrder === 'Low to High Price') {
+            sortQuery.price = 1;
+          }
+      
+          if (isLatestFirst === 'true') {
+            sortQuery.creationDateTime = -1;
+          }
+      
+          const skip = (page - 1) * limit;
+          const products = await productCollection.find().sort(sortQuery).skip(Number(skip)).limit(Number(limit)).toArray();
+      
+          const totalProducts = await productCollection.countDocuments();
+          const totalPages = Math.ceil(totalProducts / limit);
+      
+          res.json({ products, totalPages });
         } catch (error) {
-            console.error('Error sorting products:', error);
-            res.status(500).json({ error: 'Error sorting products' });
+          console.error('Error sorting products:', error);
+          res.status(500).json({ error: 'Error sorting products' });
         }
-    });
-    
+      });
+      
+    app.post("/users", async (req, res) => {
+        const user = req.body;
+        const query = { email: user.email };
+        const existUser = await userCollection.findOne(query);
+        if (existUser) {
+          return res.send({ message: "user already  exist", insertedId: null });
+        }
+        const result = await userCollection.insertOne(user);
+        res.send(result);
+      });
 
     app.get("/", (req, res) => {
       res.send("server is running!");
