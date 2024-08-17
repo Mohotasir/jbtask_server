@@ -19,7 +19,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+    //await client.connect();
 
     const productCollection = client.db("Products").collection("allProducts");
     const userCollection = client.db("Products").collection("users");
@@ -65,7 +65,24 @@ async function run() {
 
     app.get('/sortProducts', async (req, res) => {
         try {
-          const { priceOrder, isLatestFirst, page = 1, limit = 10 } = req.query;
+          const { priceOrder, isLatestFirst, brand, category, minPrice, maxPrice, page = 1, limit = 10 } = req.query;
+      
+          const query = {};
+      
+          // Filter by brand
+          if (brand) {
+            query.brand = brand;
+          }
+      
+          // Filter by category
+          if (category) {
+            query.category = category;
+          }
+      
+          // Filter by price range
+          if (minPrice && maxPrice) {
+            query.price = { $gte: Number(minPrice), $lte: Number(maxPrice) };
+          }
       
           const sortQuery = {};
           if (priceOrder === 'High to Low Price') {
@@ -79,9 +96,9 @@ async function run() {
           }
       
           const skip = (page - 1) * limit;
-          const products = await productCollection.find().sort(sortQuery).skip(Number(skip)).limit(Number(limit)).toArray();
+          const products = await productCollection.find(query).sort(sortQuery).skip(Number(skip)).limit(Number(limit)).toArray();
       
-          const totalProducts = await productCollection.countDocuments();
+          const totalProducts = await productCollection.countDocuments(query);
           const totalPages = Math.ceil(totalProducts / limit);
       
           res.json({ products, totalPages });
@@ -90,6 +107,7 @@ async function run() {
           res.status(500).json({ error: 'Error sorting products' });
         }
       });
+      
       
     app.post("/users", async (req, res) => {
         const user = req.body;
